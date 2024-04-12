@@ -181,6 +181,7 @@ ${h.at(game[channelId][`player${player === 1 ? 2 : 1}`].id)}获得了胜利，�
 玩家1：${h.at(game[session.channelId].player1.id)}<br/>
 玩家2：${h.at(game[session.channelId].player2.id)}<br/>
 ${h.at(game[session.channelId]["player" + game[session.channelId].currentTurn].id)}先手
+先手方获得3个道具，后手方获得4个道具
 枪内目前有${count(game[session.channelId].bullet, "实弹")}发实弹和${count(game[session.channelId].bullet, "空包弹")}发空包弹
 发送“恶魔轮盘.对战信息”以查看当前对战的游戏信息（如血量，道具等）`
       }
@@ -376,7 +377,7 @@ ${h.at(cache[player].id)}获得了胜利，并带着一箱子钱离开了<br/>
       result: `══恶魔轮盘══
 子弹打空了，进入下一轮${cache.final ? "\n终极决战已开启，无法再获得回血道具" : ""}
 枪内目前有${count(cache.bullet, "实弹")}发实弹和${count(cache.bullet, "空包弹")}发空包弹
-每人获得4个道具（道具上限为8个）<br/>
+先手方获得3个道具，后手方获得4个道具（道具上限为8个）<br/>
 ${h.at(cache[`player${cache.currentTurn}`].id)}先手
 `
     }
