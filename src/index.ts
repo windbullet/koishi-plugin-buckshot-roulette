@@ -253,7 +253,7 @@ ${h.at(game[session.channelId]["player" + game[session.channelId].currentTurn].i
         for (let item of game[session.channelId].player2.item) {
           result += `${item}(${itemList[item].description})\n`
         }
-        result += "\n输入“恶魔轮盘.使用道具 [道具名]”以使用道具\n输入“自己”或“对方”以选择向谁开枪"
+        result += `\n输入“恶魔轮盘.使用道具 [道具名]”${config.quickUse ? "或直接发送道具名" : ""}以使用道具\n输入“自己”或“对方”以选择向谁开枪`
         return result
       } else {
         return "══恶魔轮盘══\n当前频道没有正在进行的游戏\n发送“恶魔轮盘.创建游戏”以创建游戏"
@@ -350,7 +350,6 @@ ${h.at(cache[player].id)}获得了胜利，并带着一箱子钱离开了<br/>
           await session.send(result)
           let back = nextRound(cache)
           cache = back.cache
-          cache[`player${cache.currentTurn === 1 ? 2 : 1}`].handcuff = false
           await session.send(back.result)
         } else {
           if (bullet === "空包弹" && session.content === "自己") {
@@ -389,14 +388,16 @@ ${h.at(cache[player].id)}获得了胜利，并带着一箱子钱离开了<br/>
             return "不能选择肾上腺素"
           }
         }
+        game[session.channelId] = cache
         let back = itemList[session.content].use(session.channelId, cache.currentTurn, pick)
-          if (back.success) {
-            cache[`player${cache.currentTurn}`].item.splice(cache[`player${cache.currentTurn}`].item.indexOf(session.content), 1)
-          }
-          game[session.channelId] = cache
-          back.result.forEach(item => {
-            session.send(item)
-          })
+        cache = game[session.channelId]
+        if (back.success) {
+          cache[`player${cache.currentTurn}`].item.splice(cache[`player${cache.currentTurn}`].item.indexOf(session.content), 1)
+        }
+        game[session.channelId] = cache
+        back.result.forEach(item => {
+          session.send(item)
+        })
       }
     } else {
       return next()
@@ -414,12 +415,16 @@ ${h.at(cache[player].id)}获得了胜利，并带着一箱子钱离开了<br/>
     if (cache.round > 3) {
       list = list.filter(item => item !== "香烟" && item !== "过期药物")
     }
+    cache[`player${cache.currentTurn === 1 ? 2 : 1}`].handcuff = false
     cache.currentTurn = Random.int(1, 3)
-    let itemCount = Random.int(3, 5)
+    let itemCount = Random.int(3, 6)
     for (let i = 0; i < itemCount-1; i++) {
+      console.log(cache)
       cache[`player${cache.currentTurn}`].item.push(Random.pick(list))
     }
+    console.log("分割")
     for (let i = 0; i < itemCount; i++) {
+      console.log(cache)
       cache[`player${cache.currentTurn === 1 ? 2 : 1}`].item.push(Random.pick(list))
     }
     cache.player1.item = cache.player1.item.slice(0, 8)
