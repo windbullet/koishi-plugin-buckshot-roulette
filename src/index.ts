@@ -1,6 +1,6 @@
 import { Context, Schema, h, Random } from 'koishi'
 
-export const name = 'buckshot-roulette'
+export const name = 'buckshot-roulette2'
 
 export interface Config {
   quickUse: boolean
@@ -8,7 +8,7 @@ export interface Config {
 
 export const Config: Schema<Config> = Schema.object({
   quickUse: Schema.boolean()
-    .description('发送道具名可直接使用道具')
+    .description('发送道具名可直接使用道具') 
     .default(true),
 })
 
@@ -16,6 +16,10 @@ export function apply(ctx: Context, config: Config) {
   let game = {}
   let bullets = [
     ["实弹", "空包弹", "空包弹"], 
+    ["实弹", "实弹", "空包弹", "空包弹"],
+    ["实弹", "实弹", "空包弹", "空包弹", "空包弹"],
+    ["实弹", "实弹", "实弹", "空包弹", "空包弹", "空包弹"],
+    ["实弹", "实弹", "实弹",  "空包弹", "空包弹", "空包弹", "空包弹"],
     ["实弹", "实弹", "实弹", "实弹", "空包弹", "空包弹", "空包弹", "空包弹"], 
     ["实弹", "实弹", "实弹", "空包弹", "空包弹"],
     ["实弹", "实弹", "实弹", "实弹", "空包弹", "空包弹"]
@@ -25,13 +29,19 @@ export function apply(ctx: Context, config: Config) {
       description: "下一发造成双倍伤害，不可叠加", 
       use(channelId: string, player: number) {
         game[channelId].double = true
-        return ["你用手锯锯短了枪管，下一发将造成双倍伤害"]
+        return {
+          success: true,
+          result: ["你用手锯锯短了枪管，下一发将造成双倍伤害"] 
+        }
       },
     },
     "放大镜": {
       description: "查看当前膛内的子弹",
       use(channelId: string, player: number) {
-        return [`你使用了放大镜，看到了膛内的子弹是${game[channelId].bullet.slice(-1)[0]}`]
+        return {
+          success: true,
+          result: [`你使用了放大镜，看到了膛内的子弹是${game[channelId].bullet.slice(-1)[0]}`]
+        }
       },
     },
     "啤酒": {
@@ -41,9 +51,15 @@ export function apply(ctx: Context, config: Config) {
         if (game[channelId].bullet.length === 0) {
           let back = nextRound(game[channelId])
           game[channelId] = back.cache
-          return [`你喝下了啤酒，把当前膛内的子弹抛了出来，是一发${bullet}`, back.result]
+          return {
+            success: true,
+            result: [`你喝下了啤酒，把当前膛内的子弹抛了出来，是一发${bullet}`, back.result]
+          }
         }
-        return [`你喝下了啤酒，把当前膛内的子弹抛了出来，是一发${bullet}`]
+        return {
+          success: true,
+          result: [`你喝下了啤酒，把当前膛内的子弹抛了出来，是一发${bullet}`]
+        }
       },
     },
     "香烟": {
@@ -51,24 +67,42 @@ export function apply(ctx: Context, config: Config) {
       use(channelId: string, player: number) {
         if (game[channelId][`player${player}`].hp < 6) {
           game[channelId][`player${player}`].hp++
-          return ["你抽了一根香烟，恢复了1点生命值"]
+          return {
+            success: true,
+            result: ["你抽了一根香烟，恢复了1点生命值"]
+          }
         } else {
-          return ["你抽了一根香烟，但什么都没有发生，因为你的生命值是满的"]
+          return {
+            success: true,
+            result: ["你抽了一根香烟，但什么都没有发生，因为你的生命值是满的"]
+          }
         }
       },
     },
     "手铐": {
       description: "跳过对方的下一回合",
       use(channelId: string, player: number) {
-        game[channelId][`player${player === 1 ? 2 : 1}`].handcuff = true
-        return ["你给对方上了手铐，对方的下一回合将被跳过"]
+        if (game[channelId].usedHandcuff) {
+          return {
+            success: false,
+            result: ["一回合只能使用一次手铐"]
+          }
+        } else {
+          game[channelId][`player${player === 1 ? 2 : 1}`].handcuff = true
+          game[channelId].usedHandcuff = true
+          return {
+            success: true,
+            result: ["你给对方上了手铐，对方的下一回合将被跳过"]
+          }
+        }
+        
       }
     },
     "肾上腺素": {
       description: "选择对方的1个道具并立刻使用，不能选择肾上腺素",
       use(channelId: string, player: number, item: string) {
         game[channelId][`player${player == 1 ? 2 : 1}`].item.splice(game[channelId][`player${player == 1 ? 2 : 1}`].item.indexOf(item), 1)
-        return [itemList[item].use(channelId, player)]
+        return itemList[item].use(channelId, player)
       }
     },
     "过期药物": {
@@ -77,16 +111,25 @@ export function apply(ctx: Context, config: Config) {
         if (Random.bool(0.5)) {
           let diff = 6 - game[channelId][`player${player}`].hp
           game[channelId][`player${player}`].hp += diff < 2 ? diff : 2
-          return ["你吃下了过期药物，感觉不错，恢复了2点生命值"]
+          return {
+            success: true,
+            result: ["你吃下了过期药物，感觉不错，恢复了2点生命值"]
+          }
         } else {
           game[channelId][`player${player}`].hp--
           if (game[channelId][`player${player}`].hp <= 0) {
             delete game[channelId]
-            return [`你吃下了过期药物，感觉不太对劲，但还没来得及思考就失去了意识
+            return {
+              success: true,
+              result: [`你吃下了过期药物，感觉不太对劲，但还没来得及思考就失去了意识
 ${h.at(game[channelId][`player${player === 1 ? 2 : 1}`].id)}获得了胜利，并带着一箱子钱离开了
 游戏结束`]
+            }
           }
-          return ["你吃下了过期药物，感觉不太对劲，损失了1点生命值"]
+          return {
+            success: true,
+            result: ["你吃下了过期药物，感觉不太对劲，损失了1点生命值"]
+          }
         }
       }
     },
@@ -98,7 +141,10 @@ ${h.at(game[channelId][`player${player === 1 ? 2 : 1}`].id)}获得了胜利，�
         } else {
           game[channelId].bullet.push("实弹")
         }
-        return ["你使用了逆转器，膛内的子弹发生了一些变化"]
+        return {
+          success: true,
+          result: ["你使用了逆转器，膛内的子弹发生了一些变化"]
+        }
       }
     }
   }
@@ -165,15 +211,16 @@ ${h.at(game[channelId][`player${player === 1 ? 2 : 1}`].id)}获得了胜利，�
         return "══恶魔轮盘══\n正在等待玩家2\n发送“恶魔轮盘.加入游戏”以加入游戏"
       } else {
         game[session.channelId].status = "started"
-        game[session.channelId].bullet = Random.shuffle(bullets[0])
+        game[session.channelId].bullet = Random.shuffle(Random.pick(bullets))
         game[session.channelId].currentTurn = Random.int(1, 3)
         game[session.channelId].double = false
         game[session.channelId].round = 0
-        game[session.channelId].final = false
-        for (let i = 0; i < 3; i++) {
+        game[session.channelId].usedHandcuff = false
+        let itemCount = Random.int(3, 5)
+        for (let i = 0; i < itemCount-1; i++) {
           game[session.channelId][`player${game[session.channelId].currentTurn}`].item.push(Random.pick(Object.keys(itemList)))
         }
-        for (let i = 0; i < 4; i++) {
+        for (let i = 0; i < itemCount; i++) {
           game[session.channelId][`player${game[session.channelId].currentTurn === 1 ? 2 : 1}`].item.push(Random.pick(Object.keys(itemList)))
         }
         return `══恶魔轮盘══
@@ -234,9 +281,12 @@ ${h.at(game[session.channelId]["player" + game[session.channelId].currentTurn].i
               return "不能选择肾上腺素"
             }
           }
-          cache[`player${cache.currentTurn}`].item.splice(cache[`player${cache.currentTurn}`].item.indexOf(item), 1)
+          let back = itemList[item].use(session.channelId, cache.currentTurn, pick)
+          if (back.success) {
+            cache[`player${cache.currentTurn}`].item.splice(cache[`player${cache.currentTurn}`].item.indexOf(item), 1)
+          }
           game[session.channelId] = cache
-          itemList[item].use(session.channelId, cache.currentTurn, pick).forEach(item => {
+          back.result.forEach(item => {
             session.send(item)
           })
         }
@@ -300,6 +350,7 @@ ${h.at(cache[player].id)}获得了胜利，并带着一箱子钱离开了<br/>
           await session.send(result)
           let back = nextRound(cache)
           cache = back.cache
+          cache[`player${cache.currentTurn === 1 ? 2 : 1}`].handcuff = false
           await session.send(back.result)
         } else {
           if (bullet === "空包弹" && session.content === "自己") {
@@ -309,6 +360,7 @@ ${h.at(cache[player].id)}获得了胜利，并带着一箱子钱离开了<br/>
               cache.currentTurn = cache.currentTurn === 1 ? 2 : 1
               player = `player${cache.currentTurn}`
               result += `<br/>接下来是${h.at(cache[player].id)}的回合`
+              cache.usedHandcuff = false
             } else {
               cache[`player${cache.currentTurn === 1 ? 2 : 1}`].handcuff = false
               result += "<br/>因为对方被手铐铐住了，接下来还是你的回合"
@@ -337,11 +389,14 @@ ${h.at(cache[player].id)}获得了胜利，并带着一箱子钱离开了<br/>
             return "不能选择肾上腺素"
           }
         }
-        cache[`player${cache.currentTurn}`].item.splice(cache[`player${cache.currentTurn}`].item.indexOf(session.content), 1)
-        game[session.channelId] = cache
-        itemList[session.content].use(session.channelId, cache.currentTurn, pick).forEach(item => {
-          session.send(item)
-        })
+        let back = itemList[session.content].use(session.channelId, cache.currentTurn, pick)
+          if (back.success) {
+            cache[`player${cache.currentTurn}`].item.splice(cache[`player${cache.currentTurn}`].item.indexOf(session.content), 1)
+          }
+          game[session.channelId] = cache
+          back.result.forEach(item => {
+            session.send(item)
+          })
       }
     } else {
       return next()
@@ -354,20 +409,17 @@ ${h.at(cache[player].id)}获得了胜利，并带着一箱子钱离开了<br/>
 
   function nextRound(cache) {
     cache.round++
-    if (cache.round > 3 || cache.final) {
-      cache.final = true
-      cache.round = Random.int(0, 4)
-    }
-    cache.bullet = Random.shuffle(bullets[cache.round])
+    cache.bullet = Random.shuffle(Random.pick(bullets))
     let list = Object.keys(itemList)
-    if (cache.final) {
+    if (cache.round > 3) {
       list = list.filter(item => item !== "香烟" && item !== "过期药物")
     }
     cache.currentTurn = Random.int(1, 3)
-    for (let i = 0; i < 3; i++) {
+    let itemCount = Random.int(3, 5)
+    for (let i = 0; i < itemCount-1; i++) {
       cache[`player${cache.currentTurn}`].item.push(Random.pick(list))
     }
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < itemCount; i++) {
       cache[`player${cache.currentTurn === 1 ? 2 : 1}`].item.push(Random.pick(list))
     }
     cache.player1.item = cache.player1.item.slice(0, 8)
