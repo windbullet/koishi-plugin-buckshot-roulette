@@ -4,11 +4,15 @@ export const name = 'buckshot-roulette2'
 
 export interface Config {
   quickUse: boolean
+  alwaysShowDesc: boolean
 }
 
 export const Config: Schema<Config> = Schema.object({
   quickUse: Schema.boolean()
     .description('发送道具名可直接使用道具') 
+    .default(true),
+  alwaysShowDesc: Schema.boolean()
+    .description('对战信息中总是显示道具描述')
     .default(true),
 })
 
@@ -247,13 +251,13 @@ ${h.at(game[session.channelId]["player" + game[session.channelId].currentTurn].i
 
 --玩家1的道具--\n`
         for (let item of game[session.channelId].player1.item) {
-          result += `${item}(${itemList[item].description})\n`
+          result += `${item}` + (config.alwaysShowDesc ? `(${itemList[item].description})\n` : "\n")
         }
         result += `\n--玩家2的道具--\n`
         for (let item of game[session.channelId].player2.item) {
-          result += `${item}(${itemList[item].description})\n`
+          result += `${item}` + (config.alwaysShowDesc ? `(${itemList[item].description})\n` : "\n")
         }
-        result += `\n输入“恶魔轮盘.使用道具 [道具名]”${config.quickUse ? "或直接发送道具名" : ""}以使用道具\n输入“自己”或“对方”以选择向谁开枪`
+        result += `${config.alwaysShowDesc ? "" : "\n输入“恶魔轮盘.道具说明 [道具名]”以查看道具描述"}\n输入“恶魔轮盘.使用道具 [道具名]”${config.quickUse ? "或直接发送道具名" : ""}以使用道具\n输入“自己”或“对方”以选择向谁开枪`
         return result
       } else {
         return "══恶魔轮盘══\n当前频道没有正在进行的游戏\n发送“恶魔轮盘.创建游戏”以创建游戏"
@@ -290,6 +294,16 @@ ${h.at(game[session.channelId]["player" + game[session.channelId].currentTurn].i
             session.send(item)
           })
         }
+      }
+    })
+
+  
+  ctx.command("恶魔轮盘.道具说明 <item:string>", {checkArgCount: true})
+    .action(async ({session}, item) => {
+      if (itemList[item] === undefined) {
+        return "道具不存在"
+      } else {
+        return itemList[item].description
       }
     })
 
@@ -410,6 +424,7 @@ ${h.at(cache[player].id)}获得了胜利，并带着一箱子钱离开了<br/>
 
   function nextRound(cache) {
     cache.round++
+    cache.usedHandcuff = false
     cache.bullet = Random.shuffle(Random.pick(bullets))
     let list = Object.keys(itemList)
     if (cache.round > 3) {
@@ -419,12 +434,9 @@ ${h.at(cache[player].id)}获得了胜利，并带着一箱子钱离开了<br/>
     cache.currentTurn = Random.int(1, 3)
     let itemCount = Random.int(3, 6)
     for (let i = 0; i < itemCount-1; i++) {
-      console.log(cache)
       cache[`player${cache.currentTurn}`].item.push(Random.pick(list))
     }
-    console.log("分割")
     for (let i = 0; i < itemCount; i++) {
-      console.log(cache)
       cache[`player${cache.currentTurn === 1 ? 2 : 1}`].item.push(Random.pick(list))
     }
     cache.player1.item = cache.player1.item.slice(0, 8)
