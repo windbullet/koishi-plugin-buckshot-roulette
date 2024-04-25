@@ -125,7 +125,7 @@ export function apply(ctx: Context, config: Config) {
             let id = game[channelId][`player${player === 1 ? 2 : 1}`].id
             delete game[channelId]
             return {
-              success: true,
+              success: false,
               result: [`你吃下了过期药物，感觉不太对劲，但还没来得及思考就失去了意识
 ${h.at(id)}获得了胜利，并带着一箱子钱离开了
 游戏结束`]
@@ -403,11 +403,9 @@ ${h.at(cache[player].id)}获得了胜利，并带着一箱子钱离开了<br/>
         }
         game[session.channelId] = cache
         let back = itemList[session.content].use(session.channelId, cache.currentTurn, pick)
-        cache = game[session.channelId]
         if (back.success) {
-          cache[`player${cache.currentTurn}`].item.splice(cache[`player${cache.currentTurn}`].item.indexOf(session.content), 1)
+          game[session.channelId][`player${cache.currentTurn}`].item.splice(cache[`player${cache.currentTurn}`].item.indexOf(session.content), 1)
         }
-        game[session.channelId] = cache
         back.result.forEach(item => {
           session.send(item)
         })
