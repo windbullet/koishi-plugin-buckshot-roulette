@@ -122,11 +122,12 @@ export function apply(ctx: Context, config: Config) {
         } else {
           game[channelId][`player${player}`].hp--
           if (game[channelId][`player${player}`].hp <= 0) {
+            let id = game[channelId][`player${player === 1 ? 2 : 1}`].id
             delete game[channelId]
             return {
               success: true,
               result: [`你吃下了过期药物，感觉不太对劲，但还没来得及思考就失去了意识
-${h.at(game[channelId][`player${player === 1 ? 2 : 1}`].id)}获得了胜利，并带着一箱子钱离开了
+${h.at(id)}获得了胜利，并带着一箱子钱离开了
 游戏结束`]
             }
           }
@@ -360,26 +361,24 @@ ${h.at(cache[player].id)}获得了胜利，并带着一箱子钱离开了<br/>
           }
         } 
 
+        if (bullet === "空包弹" && session.content === "自己") {
+          result += "接下来还是你的回合"
+        } else {
+          if (!cache[`player${cache.currentTurn === 1 ? 2 : 1}`].handcuff) {
+            cache.currentTurn = cache.currentTurn === 1 ? 2 : 1
+            player = `player${cache.currentTurn}`
+            result += `<br/>接下来是${h.at(cache[player].id)}的回合`
+            cache.usedHandcuff = false
+          } else {
+            cache[`player${cache.currentTurn === 1 ? 2 : 1}`].handcuff = false
+            result += "<br/>因为对方被手铐铐住了，接下来还是你的回合"
+          }
+        }
+        await session.send(result)
         if (cache.bullet.length === 0) {
-          await session.send(result)
           let back = nextRound(cache)
           cache = back.cache
           await session.send(back.result)
-        } else {
-          if (bullet === "空包弹" && session.content === "自己") {
-            result += "接下来还是你的回合"
-          } else {
-            if (!cache[`player${cache.currentTurn === 1 ? 2 : 1}`].handcuff) {
-              cache.currentTurn = cache.currentTurn === 1 ? 2 : 1
-              player = `player${cache.currentTurn}`
-              result += `<br/>接下来是${h.at(cache[player].id)}的回合`
-              cache.usedHandcuff = false
-            } else {
-              cache[`player${cache.currentTurn === 1 ? 2 : 1}`].handcuff = false
-              result += "<br/>因为对方被手铐铐住了，接下来还是你的回合"
-            }
-          }
-          await session.send(result)
         }
         cache.double = false
         game[session.channelId] = cache
@@ -424,19 +423,14 @@ ${h.at(cache[player].id)}获得了胜利，并带着一箱子钱离开了<br/>
 
   function nextRound(cache) {
     cache.round++
-    cache.usedHandcuff = false
     cache.bullet = Random.shuffle(Random.pick(bullets))
     let list = Object.keys(itemList)
     if (cache.round > 3) {
       list = list.filter(item => item !== "香烟" && item !== "过期药物")
     }
-    cache[`player${cache.currentTurn === 1 ? 2 : 1}`].handcuff = false
-    cache.currentTurn = Random.int(1, 3)
-    let itemCount = Random.int(3, 6)
-    for (let i = 0; i < itemCount-1; i++) {
-      cache[`player${cache.currentTurn}`].item.push(Random.pick(list))
-    }
+    let itemCount = Random.int(2, 6)
     for (let i = 0; i < itemCount; i++) {
+      cache[`player${cache.currentTurn}`].item.push(Random.pick(list))
       cache[`player${cache.currentTurn === 1 ? 2 : 1}`].item.push(Random.pick(list))
     }
     cache.player1.item = cache.player1.item.slice(0, 8)
@@ -446,8 +440,7 @@ ${h.at(cache[player].id)}获得了胜利，并带着一箱子钱离开了<br/>
       result: `══恶魔轮盘══
 子弹打空了，进入下一轮${cache.final ? "\n终极决战已开启，无法再获得回血道具" : ""}
 枪内目前有${count(cache.bullet, "实弹")}发实弹和${count(cache.bullet, "空包弹")}发空包弹
-先手方获得${itemCount-1}个道具，后手方获得${itemCount}个道具（道具上限为8个）<br/>
-${h.at(cache[`player${cache.currentTurn}`].id)}先手
+双方获得${itemCount}个道具（道具上限为8个）<br/>
 `
     }
   }
