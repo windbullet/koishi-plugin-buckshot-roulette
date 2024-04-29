@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-buckshot-roulette2",
   "description": "恶魔轮盘赌",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
@@ -19,6 +19,9 @@
     "koishi",
     "plugin"
   ],
+  "dependencies": {
+    "dedent": "^1.5.3"
+  },
   "peerDependencies": {
     "koishi": "^4.17.4"
   }

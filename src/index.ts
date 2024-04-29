@@ -1,4 +1,5 @@
 import { Context, Schema, h, Random } from 'koishi'
+import dedent from "dedent";
 
 export const name = 'buckshot-roulette2'
 
@@ -31,6 +32,7 @@ export function apply(ctx: Context, config: Config) {
   const itemList = {
     "手锯": {
       description: "下一发造成双倍伤害，不可叠加", 
+      description2: "下一发造成双倍伤害，不可叠加", 
       use(channelId: string, player: number) {
         game[channelId].double = true
         return {
@@ -41,6 +43,7 @@ export function apply(ctx: Context, config: Config) {
     },
     "放大镜": {
       description: "查看当前膛内的子弹",
+      description2: "查看当前膛内的子弹",
       use(channelId: string, player: number) {
         return {
           success: true,
@@ -50,6 +53,7 @@ export function apply(ctx: Context, config: Config) {
     },
     "啤酒": {
       description: "卸下当前膛内的子弹",
+      description2: "卸下当前膛内的子弹",
       use(channelId: string, player: number) {
         let bullet = game[channelId].bullet.pop()
         if (game[channelId].bullet.length === 0) {
@@ -68,6 +72,7 @@ export function apply(ctx: Context, config: Config) {
     },
     "香烟": {
       description: "恢复1点生命值",
+      description2: "恢复1点生命值",
       use(channelId: string, player: number) {
         if (game[channelId][`player${player}`].hp < 6) {
           game[channelId][`player${player}`].hp++
@@ -85,6 +90,7 @@ export function apply(ctx: Context, config: Config) {
     },
     "手铐": {
       description: "跳过对方的下一回合",
+      description2: "跳过对方的下一回合",
       use(channelId: string, player: number) {
         if (game[channelId].usedHandcuff) {
           return {
@@ -104,13 +110,18 @@ export function apply(ctx: Context, config: Config) {
     },
     "肾上腺素": {
       description: "选择对方的1个道具并立刻使用，不能选择肾上腺素",
+      description2: "选择对方的1个道具并立刻使用，不能选择肾上腺素",
       use(channelId: string, player: number, item: string) {
-        game[channelId][`player${player == 1 ? 2 : 1}`].item.splice(game[channelId][`player${player == 1 ? 2 : 1}`].item.indexOf(item), 1)
-        return itemList[item].use(channelId, player)
+        let back = itemList[item].use(channelId, player)
+        if (back.success) {
+          game[channelId][`player${player == 1 ? 2 : 1}`].item.splice(game[channelId][`player${player == 1 ? 2 : 1}`].item.indexOf(item), 1)
+        }
+        return back
       }
     },
     "过期药物": {
       description: "50%概率恢复2点生命值，50%概率损失1点生命值",
+      description2: "50%概率恢复2点生命值，50%概率损失1点生命值",
       use(channelId: string, player: number) {
         if (Random.bool(0.5)) {
           let diff = 6 - game[channelId][`player${player}`].hp
@@ -126,9 +137,9 @@ export function apply(ctx: Context, config: Config) {
             delete game[channelId]
             return {
               success: false,
-              result: [`你吃下了过期药物，感觉不太对劲，但还没来得及思考就失去了意识
-${h.at(id)}获得了胜利，并带着一箱子钱离开了
-游戏结束`]
+              result: [dedent`你吃下了过期药物，感觉不太对劲，但还没来得及思考就失去了意识
+                              ${h.at(id)}获得了胜利，并带着一箱子钱离开了
+                              游戏结束`]
             }
           }
           return {
@@ -140,6 +151,7 @@ ${h.at(id)}获得了胜利，并带着一箱子钱离开了
     },
     "逆转器": {
       description: "转换膛内的子弹，实弹变为空包弹，反之亦然",
+      description2: "转换膛内的子弹，实弹变为空包弹，空包弹变为实弹",
       use(channelId: string, player: number) {
         if (game[channelId].bullet.pop() === "实弹") {
           game[channelId].bullet.push("空包弹")
@@ -149,6 +161,78 @@ ${h.at(id)}获得了胜利，并带着一箱子钱离开了
         return {
           success: true,
           result: ["你使用了逆转器，膛内的子弹发生了一些变化"]
+        }
+      }
+    },
+    "骰子": {
+      description: "掷一个六面骰子，根据点数触发不同的效果",
+      description2: dedent`掷一个六面骰子，根据点数触发以下效果
+                          1：膛内子弹变为实弹
+                          2：膛内子弹变为空包弹
+                          3：随机触发某个道具的效果
+                          4：恢复1滴血
+                          5：损失1滴血
+                          6：直接结束你的回合`,
+      use(channelId: string, player: number) {
+        let dice = Random.int(1, 7)
+        switch (dice) {
+          case 1:
+            game[channelId].bullet[game[channelId].bullet.length-1] = "实弹"
+            return {
+              success: true,
+              result: ["你骰出了1，膛内的子弹变成了实弹"]
+            }
+          case 2:
+            game[channelId].bullet[game[channelId].bullet.length-1] = "空包弹"
+            return {
+              success: true,
+              result: ["你骰出了2，膛内的子弹变成了空包弹"]
+            }
+          case 3:
+            let item = Random.pick(Object.keys(itemList).filter(item => item !== "骰子"))
+            let back = itemList[item].use(channelId, player)
+            return {
+              success: true,
+              result: [`你骰出了3，转眼间骰子就变成了${item}`, ...back.result]
+            }
+          case 4:
+            if (game[channelId][`player${player}`].hp < 6) {
+              game[channelId][`player${player}`].hp++
+              return {
+                success: true,
+                result: ["你骰出了4，这个数字让你感觉神清气爽，恢复了1点生命值"]
+              }
+            } else {
+              return {
+                success: true,
+                result: ["你骰出了4，这个数字让你神清气爽，但什么都没有发生，因为你的生命值是满的"]
+              }
+            }
+          case 5:
+            game[channelId][`player${player}`].hp--
+            if (game[channelId][`player${player}`].hp <= 0) {
+              let id = game[channelId][`player${player === 1 ? 2 : 1}`].id
+              delete game[channelId]
+              return {
+                success: false,
+                result: [dedent`你骰出了5，你感觉这个数字不太行，但还没来得及思考就失去了意识
+                                ${h.at(id)}获得了胜利，并带着一箱子钱离开了`]
+              }
+            } else {
+              return {
+                success: true,
+                result: ["你骰出了5，你感觉这个数字不太行，损失了1点生命值"]
+              }
+            }
+          case 6:
+            game[channelId][`player${game[channelId].currentTurn}`].item.splice(game[channelId][`player${game[channelId].currentTurn}`].item.indexOf("骰子"), 1)
+            game[channelId].currentTurn = player === 1 ? 2 : 1
+            game[channelId].usedHandcuff = false
+            game[channelId].double = false
+            return {
+              success: false,
+              result: [`你掷出了6，这个数字让你觉得被嘲讽了，急的你直接结束了回合<br/>接下来是${h.at(game[channelId][`player${game[channelId].currentTurn}`].id)}的回合`]
+            }
         }
       }
     }
@@ -169,11 +253,11 @@ ${h.at(id)}获得了胜利，并带着一箱子钱离开了
           },
           status: "waiting",
         }
-        return `══恶魔轮盘══
-游戏创建成功
-玩家1：${session.username}(${session.userId})
-玩家2：等待中
-发送“恶魔轮盘.加入游戏”以加入游戏`
+        return dedent`══恶魔轮盘══
+                      游戏创建成功
+                      玩家1：${session.username}(${session.userId})
+                      玩家2：等待中
+                      发送“恶魔轮盘.加入游戏”以加入游戏`
       } else if (game[session.channelId].status === "waiting") {
         return "══恶魔轮盘══\n当前频道已有游戏正在等待玩家\n发送“恶魔轮盘.加入游戏”以加入游戏"
       } else {
@@ -198,11 +282,11 @@ ${h.at(id)}获得了胜利，并带着一箱子钱离开了
           handcuff: false,
         }
         game[session.channelId].status = "full"
-        return `══恶魔轮盘══
-游戏开始
-玩家1：${game[session.channelId].player1.name}(${game[session.channelId].player1.id})
-玩家2：${session.username}(${session.userId})
-由玩家1${h.at(game[session.channelId].player1.id)}发送“恶魔轮盘.开始游戏”以开始游戏`
+        return dedent`══恶魔轮盘══
+                      游戏开始
+                      玩家1：${game[session.channelId].player1.name}(${game[session.channelId].player1.id})
+                      玩家2：${session.username}(${session.userId})
+                      由玩家1${h.at(game[session.channelId].player1.id)}发送“恶魔轮盘.开始游戏”以开始游戏`
       }
     })
 
@@ -221,21 +305,21 @@ ${h.at(id)}获得了胜利，并带着一箱子钱离开了
         game[session.channelId].double = false
         game[session.channelId].round = 0
         game[session.channelId].usedHandcuff = false
-        let itemCount = Random.int(3, 5)
+        let itemCount = Random.int(3, 6)
         for (let i = 0; i < itemCount-1; i++) {
           game[session.channelId][`player${game[session.channelId].currentTurn}`].item.push(Random.pick(Object.keys(itemList)))
         }
         for (let i = 0; i < itemCount; i++) {
           game[session.channelId][`player${game[session.channelId].currentTurn === 1 ? 2 : 1}`].item.push(Random.pick(Object.keys(itemList)))
         }
-        return `══恶魔轮盘══
-游戏开始
-玩家1：${h.at(game[session.channelId].player1.id)}<br/>
-玩家2：${h.at(game[session.channelId].player2.id)}<br/>
-${h.at(game[session.channelId]["player" + game[session.channelId].currentTurn].id)}先手
-先手方获得${itemCount-1}个道具，后手方获得${itemCount}个道具
-枪内目前有${count(game[session.channelId].bullet, "实弹")}发实弹和${count(game[session.channelId].bullet, "空包弹")}发空包弹
-发送“恶魔轮盘.对战信息”以查看当前对战的游戏信息（如血量，道具等）`
+        return dedent`══恶魔轮盘══
+                      游戏开始
+                      玩家1：${h.at(game[session.channelId].player1.id)}<br/>
+                      玩家2：${h.at(game[session.channelId].player2.id)}<br/>
+                      ${h.at(game[session.channelId]["player" + game[session.channelId].currentTurn].id)}先手
+                      先手方获得${itemCount-1}个道具，后手方获得${itemCount}个道具
+                      枪内目前有${count(game[session.channelId].bullet, "实弹")}发实弹和${count(game[session.channelId].bullet, "空包弹")}发空包弹
+                      发送“恶魔轮盘.对战信息”以查看当前对战的游戏信息（如血量，道具等）`
       }
 
     })
@@ -245,12 +329,12 @@ ${h.at(game[session.channelId]["player" + game[session.channelId].currentTurn].i
       if (game[session.channelId]?.status === "started") {
         
 
-        let result = `══恶魔轮盘══
---血量--
-玩家1(${game[session.channelId].player1.name})：${game[session.channelId].player1.hp}点
-玩家2(${game[session.channelId].player2.name})：${game[session.channelId].player2.hp}点
+        let result = dedent`══恶魔轮盘══
+                            --血量--
+                            玩家1(${game[session.channelId].player1.name})：${game[session.channelId].player1.hp}点
+                            玩家2(${game[session.channelId].player2.name})：${game[session.channelId].player2.hp}点
 
---玩家1的道具--\n`
+                            --玩家1的道具--\n`
         for (let item of game[session.channelId].player1.item) {
           result += `${item}` + (config.alwaysShowDesc ? `(${itemList[item].description})\n` : "\n")
         }
@@ -286,13 +370,14 @@ ${h.at(game[session.channelId]["player" + game[session.channelId].currentTurn].i
               return "不能选择肾上腺素"
             }
           }
-          let back = itemList[item].use(session.channelId, cache.currentTurn, pick)
-          if (back.success) {
-            cache[`player${cache.currentTurn}`].item.splice(cache[`player${cache.currentTurn}`].item.indexOf(item), 1)
-          }
           game[session.channelId] = cache
-          back.result.forEach(item => {
-            session.send(item)
+          let back = itemList[item].use(session.channelId, game[session.channelId].currentTurn, pick)
+          if (back.success) {
+            game[session.channelId][`player${game[session.channelId].currentTurn}`].item.splice(game[session.channelId][`player${game[session.channelId].currentTurn}`].item.indexOf(item), 1)
+          }
+
+          back.result.forEach(async item => {
+            await session.send(item)
           })
         }
       }
@@ -304,7 +389,7 @@ ${h.at(game[session.channelId]["player" + game[session.channelId].currentTurn].i
       if (itemList[item] === undefined) {
         return "道具不存在"
       } else {
-        return itemList[item].description
+        return itemList[item].description2
       }
     })
 
@@ -330,9 +415,9 @@ ${h.at(game[session.channelId]["player" + game[session.channelId].currentTurn].i
         return "现在不是你的回合"
       } else {
         let bullet = cache.bullet.pop()
-        let result = `══恶魔轮盘══
-你将枪口对准了${session.content}，扣下了扳机
-是${bullet}\n`
+        let result = dedent`══恶魔轮盘══
+                            你将枪口对准了${session.content}，扣下了扳机
+                            是${bullet}\n`
         if (bullet === "实弹") {
           if (session.content === "自己") {
             const damage = cache.double ? 2 : 1
@@ -341,10 +426,10 @@ ${h.at(game[session.channelId]["player" + game[session.channelId].currentTurn].i
             if (cache[player].hp <= 0) {
               await session.send(result)
               delete game[session.channelId]
-              return `══恶魔轮盘══<br/>
-${h.at(cache[player].id)}倒在了桌前<br/>
-${h.at(cache[player === "player1" ? "player2" : "player1"].id)}获得了胜利，并带着一箱子钱离开了<br/>
-游戏结束`
+              return dedent`══恶魔轮盘══<br/>
+                            ${h.at(cache[player].id)}倒在了桌前<br/>
+                            ${h.at(cache[player === "player1" ? "player2" : "player1"].id)}获得了胜利，并带着一箱子钱离开了<br/>
+                            游戏结束`
             }
           } else {
             const damage = cache.double ? 2 : 1
@@ -353,10 +438,10 @@ ${h.at(cache[player === "player1" ? "player2" : "player1"].id)}获得了胜利�
             if (cache[player === "player1" ? "player2" : "player1"].hp <= 0) {
               await session.send(result)
               delete game[session.channelId]
-              return `══恶魔轮盘══<br/>
-${h.at(cache[player === "player1" ? "player2" : "player1"].id)}倒在了桌前<br/>
-${h.at(cache[player].id)}获得了胜利，并带着一箱子钱离开了<br/>
-游戏结束`
+              return dedent`══恶魔轮盘══<br/>
+                            ${h.at(cache[player === "player1" ? "player2" : "player1"].id)}倒在了桌前<br/>
+                            ${h.at(cache[player].id)}获得了胜利，并带着一箱子钱离开了<br/>
+                            游戏结束`
             }
           }
         } 
@@ -402,12 +487,12 @@ ${h.at(cache[player].id)}获得了胜利，并带着一箱子钱离开了<br/>
           }
         }
         game[session.channelId] = cache
-        let back = itemList[session.content].use(session.channelId, cache.currentTurn, pick)
+        let back = itemList[session.content].use(session.channelId, game[session.channelId].currentTurn, pick)
         if (back.success) {
-          game[session.channelId][`player${cache.currentTurn}`].item.splice(cache[`player${cache.currentTurn}`].item.indexOf(session.content), 1)
+          game[session.channelId][`player${game[session.channelId].currentTurn}`].item.splice(game[session.channelId][`player${game[session.channelId].currentTurn}`].item.indexOf(session.content), 1)
         }
-        back.result.forEach(item => {
-          session.send(item)
+        back.result.forEach(async item => {
+          await session.send(item)
         })
       }
     } else {
@@ -435,11 +520,10 @@ ${h.at(cache[player].id)}获得了胜利，并带着一箱子钱离开了<br/>
     cache.player2.item = cache.player2.item.slice(0, 8)
     return {
       cache: cache,
-      result: `══恶魔轮盘══
-子弹打空了，进入下一轮${cache.final ? "\n终极决战已开启，无法再获得回血道具" : ""}
-枪内目前有${count(cache.bullet, "实弹")}发实弹和${count(cache.bullet, "空包弹")}发空包弹
-双方获得${itemCount}个道具（道具上限为8个）<br/>
-`
+      result: dedent`══恶魔轮盘══
+                    子弹打空了，进入下一轮${cache.final ? "\n终极决战已开启，无法再获得回血道具" : ""}
+                    枪内目前有${count(cache.bullet, "实弹")}发实弹和${count(cache.bullet, "空包弹")}发空包弹
+                    双方获得${itemCount}个道具（道具上限为8个）<br/>`
     }
   }
 }
