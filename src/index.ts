@@ -521,7 +521,7 @@ export function apply(ctx: Context, config: Config) {
     return {
       cache: cache,
       result: dedent`══恶魔轮盘══
-                    子弹打空了，进入下一轮${cache.final ? "\n终极决战已开启，无法再获得回血道具" : ""}
+                    子弹打空了，进入下一轮${cache.round > 3 ? "\n终极决战已开启，无法再获得回血道具" : ""}
                     枪内目前有${count(cache.bullet, "实弹")}发实弹和${count(cache.bullet, "空包弹")}发空包弹
                     双方获得${itemCount}个道具（道具上限为8个）<br/>`
     }
