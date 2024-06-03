@@ -211,7 +211,7 @@ export function apply(ctx: Context, config: Config) {
               delete game[channelId]
               return {
                 success: false,
-                result: [dedent`你骰出了5，你感觉这个数字不太行，但还没来得及思考就失去了意识
+                result: [dedent`你骰出了5，你感觉这个数字不太行，但还没来得及思考就失去了意识<br/>
                                 ${h.at(id)}获得了胜利，并带着对手所有的财产离开了`]
               }
             } else {
