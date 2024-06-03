@@ -4,14 +4,10 @@ import dedent from "dedent";
 export const name = 'buckshot-roulette2'
 
 export interface Config {
-  quickUse: boolean
   alwaysShowDesc: boolean
 }
 
 export const Config: Schema<Config> = Schema.object({
-  quickUse: Schema.boolean()
-    .description('发送道具名可直接使用道具') 
-    .default(true),
   alwaysShowDesc: Schema.boolean()
     .description('对战信息中总是显示道具描述')
     .default(true),
@@ -112,7 +108,7 @@ export function apply(ctx: Context, config: Config) {
       description: "选择对方的1个道具并立刻使用，不能选择肾上腺素",
       description2: "选择对方的1个道具并立刻使用，不能选择肾上腺素",
       use(channelId: string, player: number, item: string) {
-        let back = itemList[item].use(channelId, player)
+        let back = itemList[item].use(channelId, player, true)
         if (back.success) {
           game[channelId][`player${player == 1 ? 2 : 1}`].item.splice(game[channelId][`player${player == 1 ? 2 : 1}`].item.indexOf(item), 1)
         }
@@ -137,8 +133,8 @@ export function apply(ctx: Context, config: Config) {
             delete game[channelId]
             return {
               success: false,
-              result: [dedent`你吃下了过期药物，感觉不太对劲，但还没来得及思考就失去了意识
-                              ${h.at(id)}获得了胜利，并带着一箱子钱离开了
+              result: [dedent`你吃下了过期药物，感觉不太对劲，但还没来得及思考就失去了意识<br/>
+                              ${h.at(id)}获得了胜利，并带着对手所有的财产离开了<br/>
                               游戏结束`]
             }
           }
@@ -173,7 +169,7 @@ export function apply(ctx: Context, config: Config) {
                           4：恢复1滴血
                           5：损失1滴血
                           6：直接结束你的回合`,
-      use(channelId: string, player: number) {
+      use(channelId: string, player: number, isEpinephrine: boolean = false) {
         let dice = Random.int(1, 7)
         switch (dice) {
           case 1:
@@ -216,7 +212,7 @@ export function apply(ctx: Context, config: Config) {
               return {
                 success: false,
                 result: [dedent`你骰出了5，你感觉这个数字不太行，但还没来得及思考就失去了意识
-                                ${h.at(id)}获得了胜利，并带着一箱子钱离开了`]
+                                ${h.at(id)}获得了胜利，并带着对手所有的财产离开了`]
               }
             } else {
               return {
@@ -225,7 +221,11 @@ export function apply(ctx: Context, config: Config) {
               }
             }
           case 6:
-            game[channelId][`player${game[channelId].currentTurn}`].item.splice(game[channelId][`player${game[channelId].currentTurn}`].item.indexOf("骰子"), 1)
+            if (isEpinephrine) {
+              game[channelId][`player${game[channelId].currentTurn === 1 ? 2 : 1}`].item.splice(game[channelId][`player${game[channelId].currentTurn === 1 ? 2 : 1}`].item.indexOf("骰子"), 1)
+            } else {
+              game[channelId][`player${game[channelId].currentTurn}`].item.splice(game[channelId][`player${game[channelId].currentTurn}`].item.indexOf("骰子"), 1)
+            }
             game[channelId].currentTurn = player === 1 ? 2 : 1
             game[channelId].usedHandcuff = false
             game[channelId].double = false
@@ -334,52 +334,24 @@ export function apply(ctx: Context, config: Config) {
                             玩家1(${game[session.channelId].player1.name})：${game[session.channelId].player1.hp}点
                             玩家2(${game[session.channelId].player2.name})：${game[session.channelId].player2.hp}点
 
-                            --玩家1的道具--\n`
-        for (let item of game[session.channelId].player1.item) {
-          result += `${item}` + (config.alwaysShowDesc ? `(${itemList[item].description})\n` : "\n")
+                            --玩家1的道具 (${game[session.channelId].player1.item.length}/8)--\n`
+        if (config.alwaysShowDesc) {
+          for (let item of game[session.channelId].player1.item) {
+            result += `${item}(${itemList[item].description})\n`
+          }
+          result += `\n--玩家2的道具 (${game[session.channelId].player2.item.length}/8)--\n`
+          for (let item of game[session.channelId].player2.item) {
+            result += `${item}(${itemList[item].description})\n`
+          }
+        } else {
+          result += game[session.channelId].player1.item.join(", ") + "\n"
+          result += `\n--玩家2的道具 (${game[session.channelId].player2.item.length}/8)--\n`
+          result += game[session.channelId].player2.item.join(", ") + "\n"
         }
-        result += `\n--玩家2的道具--\n`
-        for (let item of game[session.channelId].player2.item) {
-          result += `${item}` + (config.alwaysShowDesc ? `(${itemList[item].description})\n` : "\n")
-        }
-        result += `${config.alwaysShowDesc ? "" : "\n输入“恶魔轮盘.道具说明 [道具名]”以查看道具描述"}\n输入“恶魔轮盘.使用道具 [道具名]”${config.quickUse ? "或直接发送道具名" : ""}以使用道具\n输入“自己”或“对方”以选择向谁开枪`
+        result += `${config.alwaysShowDesc ? "" : "\n输入“恶魔轮盘.道具说明 [道具名]”以查看道具描述"}\n发送道具名以使用道具\n输入“自己”或“对方”以选择向谁开枪`
         return result
       } else {
         return "══恶魔轮盘══\n当前频道没有正在进行的游戏\n发送“恶魔轮盘.创建游戏”以创建游戏"
-      }
-    })
-
-  ctx.command("恶魔轮盘.使用道具 <item:string>", {checkArgCount: true})
-    .action(async ({session}, item) => {
-      if (game[session.channelId]?.status !== "started") {
-        return "══恶魔轮盘══\n当前频道没有正在进行的游戏\n发送“恶魔轮盘.创建游戏”以创建游戏"
-      } else if (game[session.channelId][`player${game[session.channelId].currentTurn}`].id !== session.userId) {
-        return "══恶魔轮盘══\n现在不是你的回合"
-      } else {
-        let cache = game[session.channelId]
-        if (cache[`player${cache.currentTurn}`].item.includes(item)) {
-          let pick
-          if (item === "肾上腺素") {
-            await session.send("你给自己来了一针肾上腺素，请在30秒内发送你想选择的道具名")
-            pick = await session.prompt(30000)
-            if (pick == null) {
-              return "选择超时，已取消使用"
-            } else if (!cache[`player${cache.currentTurn === 1 ? 2 : 1}`].item.includes(pick)) {
-              return "对方没有这个道具，已取消使用"
-            } else if (pick === "肾上腺素") {
-              return "不能选择肾上腺素"
-            }
-          }
-          game[session.channelId] = cache
-          let back = itemList[item].use(session.channelId, game[session.channelId].currentTurn, pick)
-          if (back.success) {
-            game[session.channelId][`player${game[session.channelId].currentTurn}`].item.splice(game[session.channelId][`player${game[session.channelId].currentTurn}`].item.indexOf(item), 1)
-          }
-
-          back.result.forEach(async item => {
-            await session.send(item)
-          })
-        }
       }
     })
 
@@ -416,8 +388,8 @@ export function apply(ctx: Context, config: Config) {
       } else {
         let bullet = cache.bullet.pop()
         let result = dedent`══恶魔轮盘══
-                            你将枪口对准了${session.content}，扣下了扳机
-                            是${bullet}\n`
+                            你将枪口对准了${session.content}
+                            扣下扳机，是${bullet}\n`
         if (bullet === "实弹") {
           if (session.content === "自己") {
             const damage = cache.double ? 2 : 1
@@ -428,7 +400,7 @@ export function apply(ctx: Context, config: Config) {
               delete game[session.channelId]
               return dedent`══恶魔轮盘══<br/>
                             ${h.at(cache[player].id)}倒在了桌前<br/>
-                            ${h.at(cache[player === "player1" ? "player2" : "player1"].id)}获得了胜利，并带着一箱子钱离开了<br/>
+                            ${h.at(cache[player === "player1" ? "player2" : "player1"].id)}获得了胜利，并带着对手所有的财产离开了<br/>
                             游戏结束`
             }
           } else {
@@ -440,7 +412,7 @@ export function apply(ctx: Context, config: Config) {
               delete game[session.channelId]
               return dedent`══恶魔轮盘══<br/>
                             ${h.at(cache[player === "player1" ? "player2" : "player1"].id)}倒在了桌前<br/>
-                            ${h.at(cache[player].id)}获得了胜利，并带着一箱子钱离开了<br/>
+                            ${h.at(cache[player].id)}获得了胜利，并带着对手所有的财产离开了<br/>
                             游戏结束`
             }
           }
@@ -469,7 +441,7 @@ export function apply(ctx: Context, config: Config) {
         game[session.channelId] = cache
       
       } 
-    } else if (game[session.channelId][`player${game[session.channelId].currentTurn}`].item.includes(session.content) && config.quickUse) {
+    } else if (game[session.channelId][`player${game[session.channelId].currentTurn}`].item.includes(session.content)) {
       if (game[session.channelId][`player${game[session.channelId].currentTurn}`].id !== session.userId) {
         return "现在不是你的回合"
       } else {
