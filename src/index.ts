@@ -348,7 +348,7 @@ export function apply(ctx: Context, config: Config) {
           result += `\n--玩家2的道具 (${game[session.channelId].player2.item.length}/8)--\n`
           result += game[session.channelId].player2.item.join(", ") + "\n"
         }
-        result += `${config.alwaysShowDesc ? "" : "\n输入“恶魔轮盘.道具说明 [道具名]”以查看道具描述"}\n发送道具名以使用道具\n输入“自己”或“对方”以选择向谁开枪`
+        result += `${config.alwaysShowDesc ? "" : "\n发送“恶魔轮盘.道具说明 [道具名]”以查看道具描述"}\n发送道具名以使用道具\n发送“自己”或“对方”以选择向谁开枪`
         return result
       } else {
         return "══恶魔轮盘══\n当前频道没有正在进行的游戏\n发送“恶魔轮盘.创建游戏”以创建游戏"
