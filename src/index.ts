@@ -4,10 +4,13 @@ import dedent from "dedent";
 export const name = 'buckshot-roulette2'
 
 export interface Config {
+  admin: string[]
   alwaysShowDesc: boolean
 }
 
 export const Config: Schema<Config> = Schema.object({
+  admin: Schema.array(Schema.string())
+    .description("游戏管理员的ID（可以强制结束当前游戏），一个项目填一个ID"),
   alwaysShowDesc: Schema.boolean()
     .description('对战信息中总是显示道具描述')
     .default(true),
@@ -369,8 +372,8 @@ export function apply(ctx: Context, config: Config) {
     .action(({session}) => {
       if (game[session.channelId] === undefined) {
         return "══恶魔轮盘══\n当前频道没有已创建或正在进行的游戏"
-      } else if (game[session.channelId].player1.id !== session.userId && game[session.channelId].player2.id !== session.userId) {
-        return "══恶魔轮盘══\n只有当前游戏中的玩家才能结束游戏"
+      } else if (![game[session.channelId].player1.id, game[session.channelId].player2.id, ...config.admin].includes(session.userId)) {
+        return "══恶魔轮盘══\n只有当前游戏中的玩家或游戏管理员才能结束游戏"
       } else {
         delete game[session.channelId]
         return `══恶魔轮盘══\n游戏已被${h.at(session.userId)}结束`
