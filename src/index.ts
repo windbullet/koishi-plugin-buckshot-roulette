@@ -372,7 +372,7 @@ export function apply(ctx: Context, config: Config) {
     .action(({session}) => {
       if (game[session.channelId] === undefined) {
         return "══恶魔轮盘══\n当前频道没有已创建或正在进行的游戏"
-      } else if (![game[session.channelId].player1.id, game[session.channelId].player2.id, ...config.admin].includes(session.userId)) {
+      } else if (![game[session.channelId].player1.id, game[session.channelId]?.player2?.id, ...config.admin].includes(session.userId)) {
         return "══恶魔轮盘══\n只有当前游戏中的玩家或游戏管理员才能结束游戏"
       } else {
         delete game[session.channelId]
