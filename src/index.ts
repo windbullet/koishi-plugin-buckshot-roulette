@@ -5,12 +5,16 @@ export const name = 'buckshot-roulette2'
 
 export interface Config {
   admin: string[]
+  maxWaitTime: number
   alwaysShowDesc: boolean
 }
 
 export const Config: Schema<Config> = Schema.object({
   admin: Schema.array(Schema.string())
     .description("游戏管理员的ID（可以强制结束当前游戏），一个项目填一个ID"),
+  maxWaitTime: Schema.number()
+    .default(180)
+    .description('创建游戏后等待玩家2的最大时间（秒）'),
   alwaysShowDesc: Schema.boolean()
     .description('对战信息中总是显示道具描述')
     .default(true),
@@ -232,6 +236,7 @@ export function apply(ctx: Context, config: Config) {
             game[channelId].currentTurn = player === 1 ? 2 : 1
             game[channelId].usedHandcuff = false
             game[channelId].double = false
+            game[channelId][game[channelId].currentTurn].handcuff = false
             return {
               success: false,
               result: [`你掷出了6，这个数字让你觉得被嘲讽了，急的你直接结束了回合<br/>接下来是${h.at(game[channelId][`player${game[channelId].currentTurn}`].id)}的回合`]
@@ -240,6 +245,8 @@ export function apply(ctx: Context, config: Config) {
       }
     }
   }
+
+  let dontDisposeGame = {}
 
   ctx.command("恶魔轮盘", "恶魔轮盘")
 
@@ -256,6 +263,10 @@ export function apply(ctx: Context, config: Config) {
           },
           status: "waiting",
         }
+        dontDisposeGame[session.channelId] = ctx.setTimeout(() => {
+          session.send(`${h.at(session.userId)} 游戏等待时间超时，已取消`)
+          delete game[session.channelId]
+        }, config.maxWaitTime * 1000)
         return dedent`══恶魔轮盘══
                       游戏创建成功
                       玩家1：${session.username}(${session.userId})
@@ -277,6 +288,7 @@ export function apply(ctx: Context, config: Config) {
       } else if (game[session.channelId].player1.id === session.userId) {
         return "══恶魔轮盘══\n你不能加入你自己创建的游戏"
       } else {
+        dontDisposeGame[session.channelId]()
         game[session.channelId].player2 = {
           name: session.username, 
           id: session.userId,
@@ -334,8 +346,8 @@ export function apply(ctx: Context, config: Config) {
 
         let result = dedent`══恶魔轮盘══
                             --血量--
-                            玩家1(${game[session.channelId].player1.name})：${game[session.channelId].player1.hp}点
-                            玩家2(${game[session.channelId].player2.name})：${game[session.channelId].player2.hp}点
+                            玩家1(${game[session.channelId].player1.name})：${game[session.channelId].player1.hp}/6点
+                            玩家2(${game[session.channelId].player2.name})：${game[session.channelId].player2.hp}/6点
 
                             --玩家1的道具 (${game[session.channelId].player1.item.length}/8)--\n`
         if (config.alwaysShowDesc) {
