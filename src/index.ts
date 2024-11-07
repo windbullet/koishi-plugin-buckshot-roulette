@@ -16,7 +16,7 @@ export const Config: Schema<Config> = Schema.object({
     .description("游戏管理员的ID（可以强制结束当前游戏），一个项目填一个ID"),
   maxWaitTime: Schema.number()
     .default(180)
-    .description('创建游戏后等待玩家2的最大时间（秒）'),
+    .description('创建游戏后等待玩家2的最大时间（秒），超时后房间会被取消'),
   alwaysShowDesc: Schema.boolean()
     .description('对战信息中总是显示道具描述')
     .default(true),
