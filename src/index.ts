@@ -3,6 +3,8 @@ import dedent from "dedent";
 
 export const name = 'buckshot-roulette2'
 
+export const usage = "更新日志：https://forum.koishi.xyz/t/topic/7625"
+
 export interface Config {
   admin: string[]
   maxWaitTime: number
