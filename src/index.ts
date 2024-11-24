@@ -24,7 +24,7 @@ export const Config: Schema<Config> = Schema.object({
   dice: Schema.boolean()
     .experimental()
     .description('是否加入骰子（原创实验性道具）')
-    .default(false)
+    .default(true)
 
 })
 
