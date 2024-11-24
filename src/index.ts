@@ -9,6 +9,7 @@ export interface Config {
   admin: string[]
   maxWaitTime: number
   alwaysShowDesc: boolean
+  dice: boolean
 }
 
 export const Config: Schema<Config> = Schema.object({
@@ -20,6 +21,11 @@ export const Config: Schema<Config> = Schema.object({
   alwaysShowDesc: Schema.boolean()
     .description('对战信息中总是显示道具描述')
     .default(true),
+  dice: Schema.boolean()
+    .experimental()
+    .description('是否加入骰子（原创实验性道具）')
+    .default(false)
+
 })
 
 export function apply(ctx: Context, config: Config) {
@@ -169,7 +175,10 @@ export function apply(ctx: Context, config: Config) {
         }
       }
     },
-    "骰子": {
+  }
+
+  if (config.dice) {
+    itemList["骰子"] = {
       description: "掷一个六面骰子，根据点数触发不同的效果",
       description2: dedent`掷一个六面骰子，根据点数触发以下效果
                           1：膛内子弹变为实弹
