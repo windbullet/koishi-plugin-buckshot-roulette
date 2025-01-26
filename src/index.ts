@@ -1,4 +1,4 @@
-import { Context, Schema, h, Random } from 'koishi'
+import { Context, Schema, h, Random, Session } from 'koishi'
 import dedent from "dedent";
 
 export const name = 'buckshot-roulette2'
@@ -7,6 +7,7 @@ export const usage = "更新日志：https://forum.koishi.xyz/t/topic/7625"
 
 export interface Config {
   admin: string[]
+  muteLoser: number
   maxWaitTime: number
   alwaysShowDesc: boolean
   dice: boolean
@@ -15,6 +16,9 @@ export interface Config {
 export const Config: Schema<Config> = Schema.object({
   admin: Schema.array(Schema.string())
     .description("游戏管理员的ID（可以强制结束当前游戏），一个项目填一个ID"),
+  muteLoser: Schema.number()
+    .description('输家禁言时间（秒），为0则不禁言')
+    .default(0),
   maxWaitTime: Schema.number()
     .default(180)
     .description('创建游戏后等待玩家2的最大时间（秒），超时后房间会被取消'),
@@ -133,7 +137,7 @@ export function apply(ctx: Context, config: Config) {
     "过期药物": {
       description: "50%概率恢复2点生命值，50%概率损失1点生命值",
       description2: "50%概率恢复2点生命值，50%概率损失1点生命值",
-      use(channelId: string, player: number) {
+      use(channelId: string, player: number, session: Session<never, never, Context>) {
         if (Random.bool(0.5)) {
           let diff = 6 - game[channelId][`player${player}`].hp
           game[channelId][`player${player}`].hp += diff < 2 ? diff : 2
@@ -145,11 +149,12 @@ export function apply(ctx: Context, config: Config) {
           game[channelId][`player${player}`].hp--
           if (game[channelId][`player${player}`].hp <= 0) {
             let id = game[channelId][`player${player === 1 ? 2 : 1}`].id
+            session.bot.muteGuildMember(session.guildId, game[channelId][`player${player}`].id, config.muteLoser * 1000, "你倒在了桌前")
             delete game[channelId]
             return {
               success: false,
               result: [dedent`你吃下了过期药物，感觉不太对劲，但还没来得及思考就失去了意识<br/>
-                              ${h.at(id)}获得了胜利，并带着对手所有的财产离开了<br/>
+                              ${h.at(id)}获得了胜利<br/>
                               游戏结束`]
             }
           }
@@ -187,7 +192,7 @@ export function apply(ctx: Context, config: Config) {
                           4：恢复1滴血
                           5：损失1滴血
                           6：直接结束你的回合`,
-      use(channelId: string, player: number, isEpinephrine: boolean = false) {
+      use(channelId: string, player: number, isEpinephrine: boolean = false, session: Session<never, never, Context>) {
         let dice = Random.int(1, 7)
         switch (dice) {
           case 1:
@@ -226,11 +231,12 @@ export function apply(ctx: Context, config: Config) {
             game[channelId][`player${player}`].hp--
             if (game[channelId][`player${player}`].hp <= 0) {
               let id = game[channelId][`player${player === 1 ? 2 : 1}`].id
+              session.bot.muteGuildMember(session.guildId, game[channelId][`player${player}`].id, config.muteLoser * 1000, "你倒在了桌前")
               delete game[channelId]
               return {
                 success: false,
                 result: [dedent`你骰出了5，你感觉这个数字不太行，但还没来得及思考就失去了意识<br/>
-                                ${h.at(id)}获得了胜利，并带着对手所有的财产离开了`]
+                                ${h.at(id)}获得了胜利`]
               }
             } else {
               return {
@@ -424,9 +430,16 @@ export function apply(ctx: Context, config: Config) {
             if (cache[player].hp <= 0) {
               await session.send(result)
               delete game[session.channelId]
+              if (config.muteLoser !== 0) {
+                try {
+                  await session.bot.muteGuildMember(session.guildId, cache[player].id, config.muteLoser * 1000, "你倒在了桌前")
+                } catch (e) {
+                  ctx.logger.warn("无法禁言输家，可能是权限不足或不支持：" + e)
+                }
+              }
               return dedent`══恶魔轮盘══<br/>
                             ${h.at(cache[player].id)}倒在了桌前<br/>
-                            ${h.at(cache[player === "player1" ? "player2" : "player1"].id)}获得了胜利，并带着对手所有的财产离开了<br/>
+                            ${h.at(cache[player === "player1" ? "player2" : "player1"].id)}获得了胜利<br/>
                             游戏结束`
             }
           } else {
@@ -436,9 +449,16 @@ export function apply(ctx: Context, config: Config) {
             if (cache[player === "player1" ? "player2" : "player1"].hp <= 0) {
               await session.send(result)
               delete game[session.channelId]
+              if (config.muteLoser !== 0) {
+                try {
+                  await session.bot.muteGuildMember(session.guildId, cache[player === "player1" ? "player2" : "player1"].id, config.muteLoser * 1000, "你倒在了桌前")
+                } catch (e) {
+                  ctx.logger.warn("无法禁言输家，可能是权限不足或不支持：" + e)
+                }
+              }
               return dedent`══恶魔轮盘══<br/>
                             ${h.at(cache[player === "player1" ? "player2" : "player1"].id)}倒在了桌前<br/>
-                            ${h.at(cache[player].id)}获得了胜利，并带着对手所有的财产离开了<br/>
+                            ${h.at(cache[player].id)}获得了胜利<br/>
                             游戏结束`
             }
           }
